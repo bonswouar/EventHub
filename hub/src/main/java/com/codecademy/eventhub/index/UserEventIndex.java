@@ -89,13 +89,14 @@ public class UserEventIndex implements Closeable {
     }
   }
 
-  public void remapEventIds(int oldUserId, int recordOffset, int maxRecords, int newUserId, int newRecordOffset) {
+  public ArrayList<Long> remapEventIds(int oldUserId, int recordOffset, int originalMaxRecords, int newUserId, int newRecordOffset) {
 	  // TODO : Remove old userId UserEvents ?
 	  // Get oldUserId Events
+	    ArrayList<Long> eventIds = new ArrayList<Long>();
 	    IndexEntry indexEntry = index.get(oldUserId);
-	    maxRecords = Math.min(maxRecords, indexEntry.getNumRecords() - recordOffset);
+	    int maxRecords = Math.min(originalMaxRecords, indexEntry.getNumRecords() - recordOffset);
 	    if (maxRecords <= 0) {
-	      return;
+	      return eventIds;
 	    }
 
 	    int numRecordsPerBlock = blockFactory.getNumRecordsPerBlock();
@@ -103,7 +104,6 @@ public class UserEventIndex implements Closeable {
 	    Block block = findBlock(indexEntry, blockOffset);
 
 	    int offsetInCurrentBlock = recordOffset % numRecordsPerBlock;
-	    ArrayList<Long> eventIds = new ArrayList<Long>();
 
 	    for (int i = 0; i < maxRecords; i++) {
 	      if (offsetInCurrentBlock >= numRecordsPerBlock) {
@@ -120,9 +120,9 @@ public class UserEventIndex implements Closeable {
 	    
 	    // Get newUserId block
 	    IndexEntry newIndexEntry = index.get(newUserId);
-	    maxRecords = Math.min(maxRecords, newIndexEntry.getNumRecords() - newRecordOffset);
+	    maxRecords = Math.min(originalMaxRecords, newIndexEntry.getNumRecords() - newRecordOffset);
 	    if (maxRecords <= 0) {
-	      return;
+	      return eventIds;
 	    }
 
 //	    int newBlockOffset = newRecordOffset / numRecordsPerBlock;
@@ -132,6 +132,15 @@ public class UserEventIndex implements Closeable {
 	    for (long newEventId: eventIds) {
 		    insertEventId(newUserId, newEventId, newIndexEntry, maxRecords);
 	    }
+	    
+	    // Remove old IndexEntry User
+	        indexEntry = index.get(oldUserId);
+	        indexEntry = indexEntryFactory.build();
+	        indexEntry.setNumRecords(0);
+//	        indexEntry.setMinId(99999);
+	        indexEntry.shiftBlock(block);
+	      index.update(oldUserId, indexEntry);
+
 	    // "marchait" avant
 //        if (newIndexEntry.getNumRecords() % numRecordsPerBlock == 0) { // need a new block
 //            Block newBlock = blockFactory.build(newBlockOffset, eventIds.get(0));
@@ -146,6 +155,7 @@ public class UserEventIndex implements Closeable {
 //          }
 //        newIndexEntry.incrementNumRecord();
 //        index.update(newUserId, newIndexEntry);
+	      return eventIds;
 	  }
   
   public void insertEventId(int userId, long eventId, IndexEntry indexEntry, int maxRecords) {
@@ -171,7 +181,6 @@ public class UserEventIndex implements Closeable {
 	    
 	    // Ca marche ça ?
 	    if (eventIds.isEmpty()) {
-	    	offsetInCurrentBlock++;
 	    	  insertLastEvent(indexEntry, block, numRecordsPerBlock, eventId, offsetInCurrentBlock);
 	    } else {
 		    blockOffset = 0;
@@ -462,6 +471,10 @@ public class UserEventIndex implements Closeable {
       this.minId = minId;
       this.pointers = pointers;
       this.minIds = minIds;
+    }
+    
+    public void setNumRecords(int numRecords) {
+        this.numRecords.set(0);;
     }
 
     public long getPointer(int i) {

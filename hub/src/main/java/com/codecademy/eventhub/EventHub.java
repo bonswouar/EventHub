@@ -30,6 +30,7 @@ import org.joda.time.format.DateTimeFormatter;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -152,13 +153,9 @@ public class EventHub implements Closeable {
   public synchronized void migrateUser(String fromExternalUserId, String toExternalUserId) {
 	  	// Initialisation
 	    IdList firstStepEventIdList = new MemIdList(new long[10000], 0);
-//	    int[] funnelStepsEventTypeIds = getEventTypeIds(funnelStepsEventTypes);
 	    IdList.Iterator firstStepEventIdIterator = firstStepEventIdList.iterator();
         long firstStepEventId = firstStepEventIdIterator.next();
 
-	    List<Integer> userIdsList = Lists.newArrayList();
-	    Set<Integer> userIdsSet = Sets.newHashSet();
-	    
 	    // Get IDs
 	    userStorage.ensureUser(toExternalUserId);
 	    int toUserId = userStorage.getId(toExternalUserId);
@@ -173,15 +170,27 @@ public class EventHub implements Closeable {
 	      throw new IllegalArgumentException(String .format("User: %s does not exist!!!", fromExternalUserId));
 	    }
 	    
+	    if (fromUserId == toUserId) {
+	    	return;
+	    }
 //	    EventIndex.Callback aggregateUserIdsCallback = new AggregateUserIds(eventStorage, userStorage,
 //	            firstStepEventIdList, eventFilters.get(0), userFilter, userIdsList, userIdsSet);
 //	        shardedEventIndex.enumerateEventIds(funnelStepsEventTypes[0], startDate, endDate,
 //	            aggregateUserIdsCallback);
 	    
 	    // Re-map events
-        userEventIndex.remapEventIds(fromUserId, userEventIndex.getEventOffset(fromUserId, firstStepEventId),
+	    ArrayList<Long> eventIds = userEventIndex.remapEventIds(fromUserId, userEventIndex.getEventOffset(fromUserId, firstStepEventId),
                 Integer.MAX_VALUE, toUserId, userEventIndex.getEventOffset(toUserId, firstStepEventId));
-	    /// getUserEvents
+
+        // Alias
+        userStorage.alias(fromExternalUserId, toUserId);
+
+        // Update MetaData UserIds for old Events
+        for (long eventId : eventIds) {
+        	eventStorage.updateEventUserId(eventId, toUserId);
+        }
+
+        /// getUserEvents
 //	    List<Long> eventsIds = Lists.newArrayList();
 //	    userEventIndex.enumerateEventIds(id, 0, -1,
 //	        new CollectEventsIds(eventsIds, eventStorage));
@@ -209,6 +218,11 @@ public class EventHub implements Closeable {
 
   public Event getEvent(long eventId) {
     return eventStorage.getEvent(eventId);
+  }
+
+  public void updateEventUserId(long eventId, int userId) {
+	    eventStorage.updateEventUserId(eventId, userId);
+	    return;
   }
 
   public synchronized long addEvent(Event event) {

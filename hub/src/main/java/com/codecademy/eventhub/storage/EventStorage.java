@@ -12,4 +12,5 @@ public interface EventStorage extends Closeable {
   int getEventTypeId(long eventId);
   Visitor getFilterVisitor(long eventId);
   String getVarz(int indentation);
+void updateEventUserId(long eventId, int userId);
 }

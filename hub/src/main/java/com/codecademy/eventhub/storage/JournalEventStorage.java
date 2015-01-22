@@ -52,6 +52,14 @@ public class JournalEventStorage implements EventStorage {
     }
   }
 
+  public void updateEventUserId(long eventId, int userId) {
+      JournalEventStorage.MetaData metaData = metaDataList.get(eventId);
+      int eventTypeId = metaData.eventTypeId;
+      byte[] location = metaData.location;
+      JournalEventStorage.MetaData newMetaData = new MetaData(userId, eventTypeId, location);
+      metaDataList.update(eventId, newMetaData);
+  }
+  
   @Override
   public int getEventTypeId(long eventId) {
     return schema.getEventTypeId(metaDataList.getBytes(eventId));

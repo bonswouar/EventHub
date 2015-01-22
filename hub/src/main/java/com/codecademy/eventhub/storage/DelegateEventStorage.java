@@ -22,6 +22,12 @@ public class DelegateEventStorage implements EventStorage {
     return eventStorage.getEvent(eventId);
   }
 
+
+  public void updateEventUserId(long eventId, int userId) {
+	eventStorage.updateEventUserId(eventId, userId);
+	return;
+  }
+
   @Override
   public int getUserId(long eventId) {
     return eventStorage.getUserId(eventId);
