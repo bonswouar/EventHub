@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -88,6 +89,132 @@ public class UserEventIndex implements Closeable {
     }
   }
 
+  public void remapEventIds(int oldUserId, int recordOffset, int maxRecords, int newUserId, int newRecordOffset) {
+	  // TODO : Remove old userId UserEvents ?
+	  // Get oldUserId Events
+	    IndexEntry indexEntry = index.get(oldUserId);
+	    maxRecords = Math.min(maxRecords, indexEntry.getNumRecords() - recordOffset);
+	    if (maxRecords <= 0) {
+	      return;
+	    }
+
+	    int numRecordsPerBlock = blockFactory.getNumRecordsPerBlock();
+	    int blockOffset = recordOffset / numRecordsPerBlock;
+	    Block block = findBlock(indexEntry, blockOffset);
+
+	    int offsetInCurrentBlock = recordOffset % numRecordsPerBlock;
+	    ArrayList<Long> eventIds = new ArrayList<Long>();
+
+	    for (int i = 0; i < maxRecords; i++) {
+	      if (offsetInCurrentBlock >= numRecordsPerBlock) {
+	        block = blockFactory.find(block.getMetaData().getNextBlockPointer());
+	        offsetInCurrentBlock = 0;
+	      }
+	      eventIds.add(block.getRecord(offsetInCurrentBlock));
+//	      // TODO: extract an iterator and fetch ahead?
+//	      if (!callback.shouldContinueOnEventId(block.getRecord(offsetInCurrentBlock))) {
+//	        return;
+//	      }
+	      offsetInCurrentBlock++;
+	    }
+	    
+	    // Get newUserId block
+	    IndexEntry newIndexEntry = index.get(newUserId);
+	    maxRecords = Math.min(maxRecords, newIndexEntry.getNumRecords() - newRecordOffset);
+	    if (maxRecords <= 0) {
+	      return;
+	    }
+
+//	    int newBlockOffset = newRecordOffset / numRecordsPerBlock;
+//	    Block newBlock = findBlock(indexEntry, newBlockOffset);
+	    // ICI insertEventId
+//	      Block newBlock = blockFactory.build(0, eventIds.get(0));
+	    for (long newEventId: eventIds) {
+		    insertEventId(newUserId, newEventId, newIndexEntry, maxRecords);
+	    }
+	    // "marchait" avant
+//        if (newIndexEntry.getNumRecords() % numRecordsPerBlock == 0) { // need a new block
+//            Block newBlock = blockFactory.build(newBlockOffset, eventIds.get(0));
+//            Block prevBlock = findBlock(newIndexEntry, newBlockOffset - 1);
+//            newBlock.getMetaData().setPrevBlockPointer(prevBlock.getMetaData().getPointer());
+//            prevBlock.getMetaData().setNextBlockPointer(newBlock.getMetaData().getPointer());
+//
+//            newIndexEntry.shiftBlock(newBlock);
+//          } else {
+//            Block newBlock = findBlock(newIndexEntry, newBlockOffset);
+//            newBlock.add(eventIds.get(0));
+//          }
+//        newIndexEntry.incrementNumRecord();
+//        index.update(newUserId, newIndexEntry);
+	  }
+  
+  public void insertEventId(int userId, long eventId, IndexEntry indexEntry, int maxRecords) {
+	    int numRecordsPerBlock = blockFactory.getNumRecordsPerBlock();
+	    int blockOffset = 0;
+	    Block block = findBlock(indexEntry, blockOffset);
+
+	    int offsetInCurrentBlock = 0;
+
+	    // Get events to add after
+	    ArrayList<Long> eventIds = new ArrayList<Long>();
+
+	    for (int i = 0; i < maxRecords; i++) {
+		      if (offsetInCurrentBlock >= numRecordsPerBlock) {
+		        block = blockFactory.find(block.getMetaData().getNextBlockPointer());
+		        offsetInCurrentBlock = 0;
+		      }
+		      if (block.getRecord(offsetInCurrentBlock) > eventId) {
+		    	  eventIds.add(block.getRecord(offsetInCurrentBlock));
+		      }
+		      offsetInCurrentBlock++;
+		    }
+	    
+	    // Ca marche ça ?
+	    if (eventIds.isEmpty()) {
+	    	offsetInCurrentBlock++;
+	    	  insertLastEvent(indexEntry, block, numRecordsPerBlock, eventId, offsetInCurrentBlock);
+	    } else {
+		    blockOffset = 0;
+		    block = findBlock(indexEntry, blockOffset);
+	
+		    offsetInCurrentBlock = 0;
+		    // Add New Event
+		    for (int i = 0; i < maxRecords; i++) {
+			      if (offsetInCurrentBlock >= numRecordsPerBlock) {
+			        block = blockFactory.find(block.getMetaData().getNextBlockPointer());
+			        offsetInCurrentBlock = 0;
+			      }
+			      // Insert at the right position
+			      if (block.getRecord(offsetInCurrentBlock) > eventId) {
+			    	  insertLastEvent(indexEntry, block, numRecordsPerBlock, eventId, offsetInCurrentBlock);
+			      }
+			      offsetInCurrentBlock++;
+			    }
+		    // Add old Events
+		    for (long oldEventId: eventIds) {
+		    	  insertLastEvent(indexEntry, block, numRecordsPerBlock, oldEventId, offsetInCurrentBlock);
+			      offsetInCurrentBlock++;
+		    }
+	    }
+	    indexEntry.incrementNumRecord();
+	    index.update(userId, indexEntry);
+  }
+  
+  public void insertLastEvent(IndexEntry indexEntry, Block newBlock, int numRecordsPerBlock, long eventId, int newRecordOffset) {
+	    int newBlockOffset = newRecordOffset;
+      if (indexEntry.getNumRecords() % numRecordsPerBlock == 0) { // need a new block
+//          Block newBlock = blockFactory.build(newBlockOffset, eventId);
+          Block prevBlock = findBlock(indexEntry, newBlockOffset - 1);
+          newBlock.getMetaData().setPrevBlockPointer(prevBlock.getMetaData().getPointer());
+          prevBlock.getMetaData().setNextBlockPointer(newBlock.getMetaData().getPointer());
+
+          indexEntry.shiftBlock(newBlock);
+        } else {
+//          Block newBlock = findBlock(indexEntry, 1);
+          newBlock.set(eventId, newBlockOffset);
+        }
+  }
+  
   public synchronized void addEvent(int userId, long eventId) {
     IndexEntry indexEntry;
     long maxId = index.getMaxId();
@@ -173,6 +300,11 @@ public class UserEventIndex implements Closeable {
       byteBuffer.putLong(recordOffset * ID_SIZE, record);
     }
 
+
+    public void set(long record, int recordOffset) {
+      byteBuffer.putLong(recordOffset * ID_SIZE, record);
+    }
+    
     public long getRecord(int offsetInCurrentBlock) {
       return byteBuffer.getLong(offsetInCurrentBlock * ID_SIZE);
     }

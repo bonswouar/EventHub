@@ -21,6 +21,7 @@ import com.codecademy.eventhub.storage.EventStorage;
 import com.codecademy.eventhub.storage.UserStorage;
 import com.codecademy.eventhub.storage.filter.Filter;
 import com.codecademy.eventhub.storage.filter.TrueFilter;
+
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.format.DateTimeFormat;
@@ -147,7 +148,54 @@ public class EventHub implements Closeable {
     }
     userStorage.alias(fromExternalUserId, id);
   }
+  
+  public synchronized void migrateUser(String fromExternalUserId, String toExternalUserId) {
+	  	// Initialisation
+	    IdList firstStepEventIdList = new MemIdList(new long[10000], 0);
+//	    int[] funnelStepsEventTypeIds = getEventTypeIds(funnelStepsEventTypes);
+	    IdList.Iterator firstStepEventIdIterator = firstStepEventIdList.iterator();
+        long firstStepEventId = firstStepEventIdIterator.next();
 
+	    List<Integer> userIdsList = Lists.newArrayList();
+	    Set<Integer> userIdsSet = Sets.newHashSet();
+	    
+	    // Get IDs
+	    userStorage.ensureUser(toExternalUserId);
+	    int toUserId = userStorage.getId(toExternalUserId);
+	    userStorage.getUser(toUserId);
+	    if (toUserId == UserStorage.USER_NOT_FOUND) {
+	      throw new IllegalArgumentException(String .format("User: %s does not exist!!!", toExternalUserId));
+	    }
+	    userStorage.ensureUser(fromExternalUserId);
+	    int fromUserId = userStorage.getId(fromExternalUserId);
+	    userStorage.getUser(fromUserId);
+	    if (fromUserId == UserStorage.USER_NOT_FOUND) {
+	      throw new IllegalArgumentException(String .format("User: %s does not exist!!!", fromExternalUserId));
+	    }
+	    
+//	    EventIndex.Callback aggregateUserIdsCallback = new AggregateUserIds(eventStorage, userStorage,
+//	            firstStepEventIdList, eventFilters.get(0), userFilter, userIdsList, userIdsSet);
+//	        shardedEventIndex.enumerateEventIds(funnelStepsEventTypes[0], startDate, endDate,
+//	            aggregateUserIdsCallback);
+	    
+	    // Re-map events
+        userEventIndex.remapEventIds(fromUserId, userEventIndex.getEventOffset(fromUserId, firstStepEventId),
+                Integer.MAX_VALUE, toUserId, userEventIndex.getEventOffset(toUserId, firstStepEventId));
+	    /// getUserEvents
+//	    List<Long> eventsIds = Lists.newArrayList();
+//	    userEventIndex.enumerateEventIds(id, 0, -1,
+//	        new CollectEventsIds(eventsIds, eventStorage));
+//	    return;
+//
+//	    // Copy events
+//	    for (Long eventId : eventsIds) {
+//	    	userEventIndex.addEvent(idFrom, eventId);
+//	    }
+////	    userEventIndex.removeEventIds(id);
+//	    // Alias IDs
+//	    userStorage.alias(toExternalUserId, idFrom);
+  }
+  
   public synchronized int addOrUpdateUser(User user) {
     userStorage.ensureUser(user.getExternalId());
     int userId = userStorage.updateUser(user);
