@@ -122,7 +122,7 @@ public class UserEventIndex implements Closeable {
 	    IndexEntry newIndexEntry = index.get(newUserId);
 	    maxRecords = Math.min(originalMaxRecords, newIndexEntry.getNumRecords() - newRecordOffset);
 	    if (maxRecords <= 0) {
-	      return eventIds;
+	      return new ArrayList<Long>();
 	    }
 
 //	    int newBlockOffset = newRecordOffset / numRecordsPerBlock;
@@ -130,6 +130,7 @@ public class UserEventIndex implements Closeable {
 	    // ICI insertEventId
 //	      Block newBlock = blockFactory.build(0, eventIds.get(0));
 	    for (long newEventId: eventIds) {
+	    	maxRecords = newIndexEntry.getNumRecords();
 		    insertEventId(newUserId, newEventId, newIndexEntry, maxRecords);
 	    }
 	    

@@ -183,7 +183,12 @@ public class EventHub implements Closeable {
                 Integer.MAX_VALUE, toUserId, userEventIndex.getEventOffset(toUserId, firstStepEventId));
 
         // Alias
-        userStorage.alias(fromExternalUserId, toUserId);
+	    // empty eventIds here means that the toExternalUserId is a NEW user
+	    if (eventIds.isEmpty()) {
+	        userStorage.alias(toExternalUserId, fromUserId);
+	    } else {
+	        userStorage.alias(fromExternalUserId, toUserId);
+	    }
 
         // Update MetaData UserIds for old Events
         for (long eventId : eventIds) {
