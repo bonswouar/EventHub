@@ -41,6 +41,10 @@ public class UserEventIndex implements Closeable {
     int numPointersPerIndexEntry = indexEntryFactory.getNumPointers();
     int numRecordsPerBlock = blockFactory.getNumRecordsPerBlock();
     int numRecords = indexEntry.getNumRecords();
+    if (numRecords == 0) {
+    	// UserId without events ?! Shouldn't go there !
+    	return 0;
+    }
     int numBlocks = (int) Math.ceil((double) numRecords / numRecordsPerBlock);
     long minIdInIndex = indexEntry.getMinIdInIndex(Math.min(numBlocks, numPointersPerIndexEntry) - 1);
     if (eventId >= minIdInIndex) { // all blocks are in index
