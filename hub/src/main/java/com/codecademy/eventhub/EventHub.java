@@ -151,39 +151,53 @@ public class EventHub implements Closeable {
   }
   
   public synchronized void migrateUser(String fromExternalUserId, String toExternalUserId) {
+
+        String unknownUser = null;
+        String originalUser = null;
+        int originalUserId = UserStorage.USER_NOT_FOUND;
+        
+	    // Get IDs
+        int fromUserId = userStorage.getId(fromExternalUserId);
+        int toUserId = userStorage.getId(toExternalUserId);
+
+	    if (fromUserId == toUserId) {
+	    	return;
+	    }
+	    
+        if (fromUserId == UserStorage.USER_NOT_FOUND) {
+        	unknownUser = fromExternalUserId;
+        	originalUser = toExternalUserId;
+        	originalUserId = toUserId;
+        } else if (toUserId == UserStorage.USER_NOT_FOUND) {
+        	unknownUser = toExternalUserId;
+        	originalUser = fromExternalUserId;
+        	originalUserId = fromUserId;
+        }
+        
+        // Alias
+        if (unknownUser != null) {
+    	    if (originalUserId == UserStorage.USER_NOT_FOUND) {
+    	    	originalUserId = userStorage.ensureUser(originalUser);
+      	    }
+    	    if (originalUserId == UserStorage.USER_NOT_FOUND) {
+      	      throw new IllegalArgumentException(String .format("User: %s does not exist!!!", toExternalUserId));
+      	    }
+    	    userStorage.alias(unknownUser, originalUserId);
+        	return;
+        }
+
 	  	// Initialisation
 	    IdList firstStepEventIdList = new MemIdList(new long[10000], 0);
 	    IdList.Iterator firstStepEventIdIterator = firstStepEventIdList.iterator();
         long firstStepEventId = firstStepEventIdIterator.next();
+	    
+	      System.out.println("migrate!");
 
-	    // Get IDs
-	    userStorage.ensureUser(toExternalUserId);
-	    int toUserId = userStorage.getId(toExternalUserId);
-	    userStorage.getUser(toUserId);
-	    if (toUserId == UserStorage.USER_NOT_FOUND) {
-	      throw new IllegalArgumentException(String .format("User: %s does not exist!!!", toExternalUserId));
-	    }
-	    userStorage.ensureUser(fromExternalUserId);
-	    int fromUserId = userStorage.getId(fromExternalUserId);
-	    userStorage.getUser(fromUserId);
-	    if (fromUserId == UserStorage.USER_NOT_FOUND) {
-	      throw new IllegalArgumentException(String .format("User: %s does not exist!!!", fromExternalUserId));
-	    }
-	    
-	    if (fromUserId == toUserId) {
-	    	return;
-	    }
-//	    EventIndex.Callback aggregateUserIdsCallback = new AggregateUserIds(eventStorage, userStorage,
-//	            firstStepEventIdList, eventFilters.get(0), userFilter, userIdsList, userIdsSet);
-//	        shardedEventIndex.enumerateEventIds(funnelStepsEventTypes[0], startDate, endDate,
-//	            aggregateUserIdsCallback);
-	    
-	    // Re-map events
+        // Re-map events
 	    ArrayList<Long> eventIds = userEventIndex.remapEventIds(fromUserId, userEventIndex.getEventOffset(fromUserId, firstStepEventId),
                 Integer.MAX_VALUE, toUserId, userEventIndex.getEventOffset(toUserId, firstStepEventId));
 
-        // Alias
-	    // empty eventIds here means that the toExternalUserId is a NEW user
+	    // empty eventIds ?! Shouldn't go there.
 	    if (eventIds.isEmpty()) {
 	        userStorage.alias(toExternalUserId, fromUserId);
 	    } else {
@@ -194,20 +208,6 @@ public class EventHub implements Closeable {
         for (long eventId : eventIds) {
         	eventStorage.updateEventUserId(eventId, toUserId);
         }
-
-        /// getUserEvents
-//	    List<Long> eventsIds = Lists.newArrayList();
-//	    userEventIndex.enumerateEventIds(id, 0, -1,
-//	        new CollectEventsIds(eventsIds, eventStorage));
-//	    return;
-//
-//	    // Copy events
-//	    for (Long eventId : eventsIds) {
-//	    	userEventIndex.addEvent(idFrom, eventId);
-//	    }
-////	    userEventIndex.removeEventIds(id);
-//	    // Alias IDs
-//	    userStorage.alias(toExternalUserId, idFrom);
   }
   
   public synchronized int addOrUpdateUser(User user) {
