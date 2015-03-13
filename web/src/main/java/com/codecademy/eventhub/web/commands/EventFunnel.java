@@ -23,27 +23,33 @@ public class EventFunnel extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
-    String[] funnelSteps = request.getParameterValues("funnel_steps[]");
-    List<Filter> eventFilters = Lists.newArrayList();
-    for (int i = 0; i < funnelSteps.length; i++) {
-      Filter filter = getFilter(
-          merge(request.getParameterValues("efk[]"), request.getParameterValues("efk" + i + "[]")),
-          merge(request.getParameterValues("efk[]"), request.getParameterValues("efv" + i + "[]")));
-      eventFilters.add(filter);
-    }
-    Filter userFilter = getFilter(request.getParameterValues("ufk[]"),
-        request.getParameterValues("ufv[]"));
-
-    int[] funnelCounts = eventHub.getFunnelCounts(
-        request.getParameter("start_date"),
-        request.getParameter("end_date"),
-        funnelSteps,
-        Integer.parseInt(request.getParameter("num_days_to_complete_funnel")),
-        eventFilters,
-        userFilter);
-    response.getWriter().println(gson.toJson(funnelCounts));
+      if (this.getIsAuthorized()) {
+	    String[] funnelSteps = request.getParameterValues("funnel_steps[]");
+	    List<Filter> eventFilters = Lists.newArrayList();
+	    for (int i = 0; i < funnelSteps.length; i++) {
+	      Filter filter = getFilter(
+	          merge(request.getParameterValues("efk[]"), request.getParameterValues("efk" + i + "[]")),
+	          merge(request.getParameterValues("efk[]"), request.getParameterValues("efv" + i + "[]")));
+	      eventFilters.add(filter);
+	    }
+	    Filter userFilter = getFilter(request.getParameterValues("ufk[]"),
+	        request.getParameterValues("ufv[]"));
+	
+	    int[] funnelCounts = eventHub.getFunnelCounts(
+	        request.getParameter("start_date"),
+	        request.getParameter("end_date"),
+	        funnelSteps,
+	        Integer.parseInt(request.getParameter("num_days_to_complete_funnel")),
+	        eventFilters,
+	        userFilter);
+	    response.getWriter().println(gson.toJson(funnelCounts));
+	    return true;
+	  } else {
+		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+		return false;
+	  }
   }
 
 }

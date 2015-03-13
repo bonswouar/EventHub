@@ -21,9 +21,15 @@ public class GetEventTypes extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
-    List<String> eventTypes = eventHub.getEventTypes();
-    response.getWriter().println(gson.toJson(eventTypes));
+      if (this.getIsAuthorized()) {
+		  List<String> eventTypes = eventHub.getEventTypes();
+	    response.getWriter().println(gson.toJson(eventTypes));
+	    return true;
+	  } else {
+		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+		return false;
+	  }
   }
 }

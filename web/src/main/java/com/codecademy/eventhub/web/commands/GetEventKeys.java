@@ -21,9 +21,15 @@ public class GetEventKeys extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
-    List<String> keys = eventHub.getEventKeys(request.getParameter("event_type"));
-    response.getWriter().println(gson.toJson(keys));
+      if (this.getIsAuthorized()) {
+		  List<String> keys = eventHub.getEventKeys(request.getParameter("event_type"));
+	    response.getWriter().println(gson.toJson(keys));
+	    return true;
+	  } else {
+		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+		return false;
+	  }
   }
 }

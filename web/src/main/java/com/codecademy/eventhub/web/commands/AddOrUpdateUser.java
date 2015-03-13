@@ -18,11 +18,12 @@ public class AddOrUpdateUser extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
     int userId = eventHub.addOrUpdateUser(new User.Builder(
         request.getParameter("external_user_id"),
         toProperties(request)).build());
     response.getWriter().println(userId);
+    return true;
   }
 }

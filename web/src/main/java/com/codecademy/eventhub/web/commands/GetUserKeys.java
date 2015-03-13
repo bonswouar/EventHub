@@ -20,8 +20,14 @@ public class GetUserKeys extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
-    response.getWriter().println(gson.toJson(eventHub.getUserKeys()));
+      if (this.getIsAuthorized()) {
+    	  response.getWriter().println(gson.toJson(eventHub.getUserKeys()));
+    	  return true;
+	  } else {
+		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+		return false;
+	  }
   }
 }

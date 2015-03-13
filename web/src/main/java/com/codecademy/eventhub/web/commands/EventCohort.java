@@ -21,22 +21,28 @@ public class EventCohort extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
-    Filter rowEventFilter = getFilter(request.getParameterValues("refk[]"),
-        request.getParameterValues("refv[]"));
-    Filter columnEventFilter = getFilter(request.getParameterValues("cefk[]"),
-        request.getParameterValues("cefv[]"));
-
-    int[][] retentionTable = eventHub.getRetentionTable(
-        request.getParameter("start_date"),
-        request.getParameter("end_date"),
-        Integer.parseInt(request.getParameter("num_days_per_row")),
-        Integer.parseInt(request.getParameter("num_columns")),
-        request.getParameter("row_event_type"),
-        request.getParameter("column_event_type"),
-        rowEventFilter,
-        columnEventFilter);
-    response.getWriter().println(gson.toJson(retentionTable));
+      if (this.getIsAuthorized()) {
+	    Filter rowEventFilter = getFilter(request.getParameterValues("refk[]"),
+	        request.getParameterValues("refv[]"));
+	    Filter columnEventFilter = getFilter(request.getParameterValues("cefk[]"),
+	        request.getParameterValues("cefv[]"));
+	
+	    int[][] retentionTable = eventHub.getRetentionTable(
+	        request.getParameter("start_date"),
+	        request.getParameter("end_date"),
+	        Integer.parseInt(request.getParameter("num_days_per_row")),
+	        Integer.parseInt(request.getParameter("num_columns")),
+	        request.getParameter("row_event_type"),
+	        request.getParameter("column_event_type"),
+	        rowEventFilter,
+	        columnEventFilter);
+	    response.getWriter().println(gson.toJson(retentionTable));
+	    return true;
+	  } else {
+		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+		return false;
+	  }
   }
 }

@@ -17,11 +17,12 @@ public class AliasUser extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
     eventHub.aliasUser(
         request.getParameter("from_external_user_id"),
         request.getParameter("to_external_user_id"));
     response.getWriter().println("\"OK\"");
+    return true;
   }
 }

@@ -21,14 +21,20 @@ public class GetEventValues extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
-    String prefix = request.getParameter("prefix");
-    prefix = (prefix == null ? "" : prefix);
-    List<String> values = eventHub.getEventValues(
-        request.getParameter("event_type"),
-        request.getParameter("event_key"),
-        prefix);
-    response.getWriter().println(gson.toJson(values));
+      if (this.getIsAuthorized()) {
+	    String prefix = request.getParameter("prefix");
+	    prefix = (prefix == null ? "" : prefix);
+	    List<String> values = eventHub.getEventValues(
+	        request.getParameter("event_type"),
+	        request.getParameter("event_key"),
+	        prefix);
+	    response.getWriter().println(gson.toJson(values));
+	    return true;
+	  } else {
+		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+		return false;
+	  }
   }
 }

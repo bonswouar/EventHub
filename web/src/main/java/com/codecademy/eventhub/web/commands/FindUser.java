@@ -23,12 +23,18 @@ public class FindUser extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
-    Filter filter = getFilter(
-        request.getParameterValues("ufk[]"),
-        request.getParameterValues("ufv[]"));
-    List<User> users = eventHub.findUsers(filter);
-    response.getWriter().println(gson.toJson(users));
+      if (this.getIsAuthorized()) {
+	    Filter filter = getFilter(
+	        request.getParameterValues("ufk[]"),
+	        request.getParameterValues("ufv[]"));
+	    List<User> users = eventHub.findUsers(filter);
+	    response.getWriter().println(gson.toJson(users));
+	    return true;
+	  } else {
+		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+		return false;
+	  }
   }
 }

@@ -2,6 +2,8 @@ package com.codecademy.eventhub.web;
 
 import com.codecademy.eventhub.EventHub;
 import com.codecademy.eventhub.EventHubModule;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonParser;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.google.inject.Key;
@@ -15,6 +17,7 @@ import com.codecademy.eventhub.list.DmaIdListModule;
 import com.codecademy.eventhub.storage.EventStorageModule;
 import com.codecademy.eventhub.storage.UserStorageModule;
 import com.codecademy.eventhub.web.commands.Command;
+
 import org.eclipse.jetty.security.ConstraintMapping;
 import org.eclipse.jetty.security.ConstraintSecurityHandler;
 import org.eclipse.jetty.security.HashLoginService;
@@ -32,6 +35,7 @@ import javax.inject.Provider;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.Collections;
@@ -42,6 +46,7 @@ public class EventHubHandler extends AbstractHandler implements Closeable {
   private final EventHub eventHub;
   private final Map<String, Provider<Command>> commandsMap;
   private boolean isLogging;
+  private JsonArray authIps;
 
   public EventHubHandler(EventHub eventHub, Map<String, Provider<Command>> commandsMaps) {
     this.eventHub = eventHub;
@@ -52,24 +57,44 @@ public class EventHubHandler extends AbstractHandler implements Closeable {
   @Override
   public void handle(String target, Request baseRequest, HttpServletRequest request,
       HttpServletResponse response) throws IOException, ServletException {
-    if (isLogging) {
-      System.out.println(request);
-    }
-    response.setStatus(HttpServletResponse.SC_OK);
+	  String ipAddress = request.getHeader("X-FORWARDED-FOR");
+	  if (ipAddress == null) {
+	      ipAddress = request.getRemoteAddr();
+	  }
+	  boolean isAuthorized = false;
+	  for (int i=0; i<authIps.size(); i++) {
+		    if (authIps.get(i).getAsString().equals(ipAddress)) {
+		    	isAuthorized = true;
+		    }
+		}
+	  if (isLogging) {
+	      System.out.println(request);
+	    }
+	  response.setStatus(HttpServletResponse.SC_OK);
+
     switch (target) {
       case "/debug":
-        isLogging = !isLogging;
-        baseRequest.setHandled(true);
+    	if (isAuthorized) {
+    	  isLogging = !isLogging;
+    	  baseRequest.setHandled(true);
+    	} else {
+    		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+    	}
         break;
       case "/varz":
-        response.getWriter().println(eventHub.getVarz());
+      	if (isAuthorized) {
+    	  response.getWriter().println(eventHub.getVarz());
         baseRequest.setHandled(true);
+    	} else {
+    		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+    	}
         break;
       default:
         Provider<Command> commandProvider = commandsMap.get(target);
         if (commandProvider != null) {
-          commandProvider.get().execute(request, response);
-          baseRequest.setHandled(true);
+        	Command command = commandProvider.get();
+        	command.setIsAuthorized(isAuthorized);
+        	baseRequest.setHandled(command.execute(request, response));
         }
         break;
     }
@@ -87,7 +112,6 @@ public class EventHubHandler extends AbstractHandler implements Closeable {
     properties.load(
         EventHubHandler.class.getClassLoader().getResourceAsStream("web.properties"));
     properties.putAll(System.getProperties());
-
     Injector injector = Guice.createInjector(Modules.override(
         new DmaIdListModule(),
         new DatedEventIndexModule(),
@@ -99,7 +123,9 @@ public class EventHubHandler extends AbstractHandler implements Closeable {
         new EventHubModule(properties)).with(new Module()));
     final EventHubHandler eventHubHandler = injector.getInstance(EventHubHandler.class);
     int port = injector.getInstance(Key.get(Integer.class, Names.named("eventhubhandler.port")));
-
+    JsonParser parser = new JsonParser();
+    eventHubHandler.authIps = (JsonArray)parser.parse(injector.getInstance(Key.get(String.class, Names.named("eventhub.auth.ips"))));
+    
     final Server server = new Server(port);
     @SuppressWarnings("ConstantConditions")
     String webDir = EventHubHandler.class.getClassLoader().getResource("frontend").toExternalForm();

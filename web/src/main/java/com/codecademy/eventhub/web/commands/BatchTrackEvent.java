@@ -29,7 +29,7 @@ public class BatchTrackEvent extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
 
     List<Map<String, String>> events = gson.fromJson(
@@ -49,5 +49,6 @@ public class BatchTrackEvent extends Command {
       eventIds.add(eventHub.addEvent(event));
     }
     writer.println(gson.toJson(eventIds));
+    return true;
   }
 }

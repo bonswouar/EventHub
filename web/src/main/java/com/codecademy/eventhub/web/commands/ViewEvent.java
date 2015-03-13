@@ -21,9 +21,15 @@ public class ViewEvent extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
-    Event event = eventHub.getEvent(Long.parseLong(request.getParameter("event_id")));
-    response.getWriter().println(gson.toJson(event));
-  }
+      if (this.getIsAuthorized()) {
+	    Event event = eventHub.getEvent(Long.parseLong(request.getParameter("event_id")));
+	    response.getWriter().println(gson.toJson(event));
+	    return true;
+	  } else {
+		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+		return false;
+	  }
+   }
 }

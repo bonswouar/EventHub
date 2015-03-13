@@ -21,7 +21,7 @@ public class TrackEvent extends Command {
   }
 
   @Override
-  public synchronized void execute(final HttpServletRequest request,
+  public synchronized boolean execute(final HttpServletRequest request,
       final HttpServletResponse response) throws IOException {
     String date = request.getParameter("date");
     if (date == null) {
@@ -33,5 +33,6 @@ public class TrackEvent extends Command {
         date,
         toProperties(request)).build();
     response.getWriter().println(eventHub.addEvent(event));
+    return true;
   }
 }

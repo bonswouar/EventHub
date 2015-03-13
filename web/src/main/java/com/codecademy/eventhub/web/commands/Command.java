@@ -10,12 +10,14 @@ import com.codecademy.eventhub.storage.filter.TrueFilter;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 public abstract class Command {
-  public abstract void execute(final HttpServletRequest request, final HttpServletResponse response) throws IOException;
+private boolean isAuthorized;
+  public abstract boolean execute(final HttpServletRequest request, final HttpServletResponse response) throws IOException;
 
   protected Map<String, String> toProperties(final HttpServletRequest request) {
     return Maps.asMap(request.getParameterMap().keySet(), new Function<String, String>() {
@@ -51,5 +53,13 @@ public abstract class Command {
       eventFilters.add(new ExactMatch(filterKeys[i], filterValues[i]));
     }
     return new And(eventFilters);
+  }
+  
+  public boolean getIsAuthorized() {
+	  return this.isAuthorized;
+  }
+  
+  public void setIsAuthorized(boolean isAuthorized) {
+	  this.isAuthorized = isAuthorized;
   }
 }
