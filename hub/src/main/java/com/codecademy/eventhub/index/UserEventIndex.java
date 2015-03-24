@@ -210,12 +210,13 @@ public class UserEventIndex implements Closeable {
 			      offsetInCurrentBlock++;
 		    }
 	    }
+	    block.incrementNumRecords();
 	    indexEntry.incrementNumRecord();
 	    index.update(userId, indexEntry);
   }
   
   public void insertLastEvent(IndexEntry indexEntry, Block newBlock, int numRecordsPerBlock, long eventId, int newRecordOffset) {
-	    int newBlockOffset = newRecordOffset;
+	  int newBlockOffset = newRecordOffset / numRecordsPerBlock;
       if (indexEntry.getNumRecords() % numRecordsPerBlock == 0) { // need a new block
 //          Block newBlock = blockFactory.build(newBlockOffset, eventId);
           Block prevBlock = findBlock(indexEntry, newBlockOffset - 1);
@@ -225,7 +226,7 @@ public class UserEventIndex implements Closeable {
           indexEntry.shiftBlock(newBlock);
         } else {
 //          Block newBlock = findBlock(indexEntry, 1);
-          newBlock.set(eventId, newBlockOffset);
+        	newBlock.set(eventId, newRecordOffset);
         }
   }
   
@@ -313,7 +314,10 @@ public class UserEventIndex implements Closeable {
       int recordOffset = metaData.getNumRecordsAndIncrement();
       byteBuffer.putLong(recordOffset * ID_SIZE, record);
     }
-
+    
+    public void incrementNumRecords() {
+	 metaData.incrementNumRecords();
+    }
 
     public void set(long record, int recordOffset) {
       byteBuffer.putLong(recordOffset * ID_SIZE, record);
@@ -362,6 +366,11 @@ public class UserEventIndex implements Closeable {
         return numRecords;
       }
 
+      public synchronized void incrementNumRecords() {
+        int numRecords = getNumRecords();
+        byteBuffer.putInt(4, numRecords + 1);
+      }
+      
       public long getPointer() {
         return byteBuffer.getLong(8);
       }
